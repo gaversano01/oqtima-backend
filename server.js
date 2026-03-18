@@ -77,20 +77,30 @@ async function refreshHubspot() {
 // ─── GOOGLE ADS CSV ───────────────────────────────────────────────────────────
 function parseCSV(text) {
   const lines = text.trim().split('\n');
-  // Find header row (skip SyncWith title rows)
-  let headerIdx = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].toLowerCase();
-    if (line.includes('day') || line.includes('session') || line.includes('clicks') || line.includes('impr')) {
-      headerIdx = i;
-      break;
-    }
+  // Find the real header row — must have 3+ columns and contain known header keywords
+  // This skips SyncWith title rows like "Standard Metrics - Last 90 Days"
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const cols = lines[i].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase()).filter(h => h.length > 0);
+    const isRealHeader = cols.length >= 3 && (
+      cols.some(c => c === 'day' || c === 'date') ||
+      cols.some(c => c === 'sessions') ||
+      cols.some(c => c === 'clicks') ||
+      cols.some(c => c === 'impr.' || c === 'impressions')
+    );
+    if (isRealHeader) { headerIdx = i; break; }
   }
+  if (headerIdx === -1) {
+    console.warn('CSV header not found. First 3 lines:', lines.slice(0,3).join(' | '));
+    return [];
+  }
+  console.log('CSV header found at row', headerIdx, ':', lines[headerIdx]);
   const headers = lines[headerIdx].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
   const rows = [];
   for (let i = headerIdx + 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    if (vals.every(v => !v)) continue;
     const obj = {};
     headers.forEach((h, idx) => { obj[h] = vals[idx] || ''; });
     rows.push(obj);
