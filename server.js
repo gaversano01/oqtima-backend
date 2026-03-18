@@ -341,8 +341,18 @@ app.post('/api/refresh', async (req, res) => {
 // Scheduled refresh every hour
 cron.schedule('0 * * * *', () => { console.log('Scheduled refresh...'); refreshAll(); });
 
+// Self-ping every 10 min — prevents Render free tier from spinning down
+cron.schedule('*/10 * * * *', async () => {
+  try {
+    const selfUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    await axios.get(selfUrl + '/health').catch(() => {});
+  } catch(e) {}
+});
+
 app.listen(PORT, async () => {
   console.log(`OQtima backend running on port ${PORT}`);
   if (HUBSPOT_TOKEN) await refreshAll();
   else console.warn('HUBSPOT_TOKEN not set');
 });
+
+// Self-ping appended
