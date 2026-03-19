@@ -14,7 +14,8 @@ const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN;
 const HUBSPOT_BASE = 'https://api.hubapi.com';
 
 // Google Sheets CSV URLs — set these as env vars in Render
-const GADS_CSV_URL = process.env.GADS_CSV_URL;
+const GADS_CSV_URL = process.env.GADS_CSV_URL;       // Australia
+const GADS_JP_CSV_URL = process.env.GADS_JP_CSV_URL; // Japan
 const GA4_CSV_URL = process.env.GA4_CSV_URL;
 
 // ─── CACHE ────────────────────────────────────────────────────────────────────
@@ -114,11 +115,15 @@ function cleanNum(val) {
 }
 
 async function refreshGoogleAds() {
-  if (!GADS_CSV_URL) { console.warn('GADS_CSV_URL not set'); return; }
+  if (!GADS_CSV_URL && !GADS_JP_CSV_URL) { console.warn('No Google Ads CSV URLs set'); return; }
   try {
-    console.log('Refreshing Google Ads...');
-    const res = await axios.get(GADS_CSV_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    const rows = parseCSV(res.data);
+    console.log('Refreshing Google Ads (AU + JP)...');
+    // Fetch both AU and JP CSVs and merge
+    const fetches = [];
+    if (GADS_CSV_URL) fetches.push(axios.get(GADS_CSV_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => parseCSV(r.data)).catch(() => []));
+    if (GADS_JP_CSV_URL) fetches.push(axios.get(GADS_JP_CSV_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => parseCSV(r.data)).catch(() => []));
+    const results = await Promise.all(fetches);
+    const rows = results.flat();
 
     let totalImpr = 0, totalClicks = 0, totalCost = 0, totalConv = 0;
     const byDay = {}, byDate = [];
@@ -164,7 +169,7 @@ async function refreshGoogleAds() {
           costPerConversion: parseFloat(costPerConv),
         },
         byMonth: byDay,
-        daily: byDate.slice(-30),
+        daily: byDate.slice(-365),
       },
       lastUpdated: new Date().toISOString(),
     };
