@@ -262,7 +262,14 @@ app.get('/api/hubspot/contacts', async (req, res) => {
       byCountry[country] = (byCountry[country] || 0) + 1;
       const campaign = p[PROPS.campaign] || 'Direct/Unknown';
       byCampaign[campaign] = (byCampaign[campaign] || 0) + 1;
-      if (p.createdate) { const m = p.createdate.slice(0,7); byMonth[m] = (byMonth[m]||0)+1; }
+      if (p.createdate) {
+        const m = p.createdate.slice(0,7);
+        if (!byMonth[m]) byMonth[m] = { contacts: 0, kyc: 0, ftd: 0, spend: 0 };
+        byMonth[m].contacts++;
+        const doc2 = p[PROPS.documentation] || p[PROPS.docStatus] || '';
+        if (doc2 === 'Approved') byMonth[m].kyc++;
+        if (p[PROPS.madeDeposit]==='true' || parseFloat(p[PROPS.lifetimeDeposit])>0) byMonth[m].ftd++;
+      }
       const doc = p[PROPS.documentation] || p[PROPS.docStatus] || 'Unknown';
       byStatus[doc] = (byStatus[doc]||0)+1;
       if (doc === 'Approved') kycApproved++;
